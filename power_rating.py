@@ -337,9 +337,12 @@ def calculate_opponent_adjusted_metrics(
     team_stats = []
     for team in teams:
         team_games = df[df["team"] == team]
+        # Total plays for shrinkage calculation
+        total_plays = team_games["off_plays"].sum() + team_games["def_plays"].sum()
         team_stats.append({
             "team": team,
             "games": len(team_games),
+            "total_plays": total_plays,
             "raw_off_ppa": weighted_mean(team_games, "off_ppa"),
             "raw_def_ppa": weighted_mean(team_games, "def_ppa"),
             "raw_off_sr": weighted_mean(team_games, "off_success_rate"),
@@ -360,7 +363,10 @@ def calculate_opponent_adjusted_metrics(
     team_stats["adj_off_sr"] = team_stats["raw_off_sr"]
     team_stats["adj_def_sr"] = team_stats["raw_def_sr"]
 
-    print(f"  Running opponent adjustment ({config.opp_adjust_iterations} iterations)...")
+    # Adjustment strength: 1.0 for stable SRS-style convergence
+    adj_strength = 1.0
+
+    print(f"  Running opponent adjustment ({config.opp_adjust_iterations} iterations, strength={adj_strength})...")
 
     for iteration in range(config.opp_adjust_iterations):
         prev_off_ppa = team_stats["adj_off_ppa"].copy()
@@ -393,22 +399,22 @@ def calculate_opponent_adjusted_metrics(
                 opp_adj_def_sr = def_sr_lookup.get(opp, avg_def_sr)
                 opp_adj_off_sr = off_sr_lookup.get(opp, avg_off_sr)
 
-                # Adjust PPA (additive)
+                # Adjust PPA (additive with strength multiplier)
                 if not pd.isna(game.get("off_ppa")):
-                    adj_off = game["off_ppa"] + (avg_def_ppa - opp_adj_def_ppa)
+                    adj_off = game["off_ppa"] + adj_strength * (avg_def_ppa - opp_adj_def_ppa)
                     adj_values["off_ppa"].append(adj_off)
 
                 if not pd.isna(game.get("def_ppa")):
-                    adj_def = game["def_ppa"] - (opp_adj_off_ppa - avg_off_ppa)
+                    adj_def = game["def_ppa"] - adj_strength * (opp_adj_off_ppa - avg_off_ppa)
                     adj_values["def_ppa"].append(adj_def)
 
-                # Adjust success rate
+                # Adjust success rate (with strength multiplier)
                 if not pd.isna(game.get("off_success_rate")):
-                    adj_off_sr = game["off_success_rate"] + (avg_def_sr - opp_adj_def_sr)
+                    adj_off_sr = game["off_success_rate"] + adj_strength * (avg_def_sr - opp_adj_def_sr)
                     adj_values["off_sr"].append(adj_off_sr)
 
                 if not pd.isna(game.get("def_success_rate")):
-                    adj_def_sr = game["def_success_rate"] - (opp_adj_off_sr - avg_off_sr)
+                    adj_def_sr = game["def_success_rate"] - adj_strength * (opp_adj_off_sr - avg_off_sr)
                     adj_values["def_sr"].append(adj_def_sr)
 
                 weights.append(w)
@@ -425,13 +431,12 @@ def calculate_opponent_adjusted_metrics(
         team_stats["adj_off_sr"] = new_adj["off_sr"]
         team_stats["adj_def_sr"] = new_adj["def_sr"]
 
-        # Normalize PPA to mean 0
+        # Normalize PPA to mean 0 (required each iteration for convergence)
         team_stats["adj_off_ppa"] = team_stats["adj_off_ppa"] - team_stats["adj_off_ppa"].mean()
         team_stats["adj_def_ppa"] = team_stats["adj_def_ppa"] - team_stats["adj_def_ppa"].mean()
 
-        # Normalize success rate to maintain original mean
-        team_stats["adj_off_sr"] = team_stats["adj_off_sr"] - team_stats["adj_off_sr"].mean() + avg_off_sr
-        team_stats["adj_def_sr"] = team_stats["adj_def_sr"] - team_stats["adj_def_sr"].mean() + avg_def_sr
+        # NOTE: Success rate centering removed from loop to avoid double-centering
+        # Center once after loop completes (see below)
 
         # Check convergence
         ppa_change = np.abs(team_stats["adj_off_ppa"] - prev_off_ppa).mean()
@@ -443,6 +448,34 @@ def calculate_opponent_adjusted_metrics(
             print(f"    Converged at iteration {iteration + 1}")
             break
 
+    # Center success rates once after opponent adjustment completes (avoid double-centering)
+    team_stats["adj_off_sr"] = team_stats["adj_off_sr"] - team_stats["adj_off_sr"].mean() + avg_off_sr
+    team_stats["adj_def_sr"] = team_stats["adj_def_sr"] - team_stats["adj_def_sr"].mean() + avg_def_sr
+
+    # Apply shrinkage/regression to prior based on sample size
+    # This handles: early-season noise, low-sample teams, blowout volatility
+    min_plays_full_weight = 800  # ~60 plays/game * 13 games = full season
+    preseason_prior = 0.0  # Average team (could use recruiting rankings)
+
+    shrinkage_weight = np.minimum(team_stats["total_plays"] / min_plays_full_weight, 1.0)
+
+    team_stats["adj_off_ppa"] = (
+        shrinkage_weight * team_stats["adj_off_ppa"] +
+        (1 - shrinkage_weight) * preseason_prior
+    )
+    team_stats["adj_def_ppa"] = (
+        shrinkage_weight * team_stats["adj_def_ppa"] +
+        (1 - shrinkage_weight) * preseason_prior
+    )
+    team_stats["adj_off_sr"] = (
+        shrinkage_weight * team_stats["adj_off_sr"] +
+        (1 - shrinkage_weight) * avg_off_sr
+    )
+    team_stats["adj_def_sr"] = (
+        shrinkage_weight * team_stats["adj_def_sr"] +
+        (1 - shrinkage_weight) * avg_def_sr
+    )
+
     return team_stats
 
 
@@ -451,7 +484,7 @@ def calculate_opponent_adjusted_metrics(
 # =============================================================================
 
 def calculate_power_rating(team_stats: pd.DataFrame, config: RatingConfig,
-                          baseline_points: float = 28.0, season: int = 2024) -> pd.DataFrame:
+                          baseline_points: float = 28.0, game_data: pd.DataFrame = None) -> pd.DataFrame:
     """
     Calculate final power rating (IPR) from adjusted metrics.
 
@@ -460,24 +493,28 @@ def calculate_power_rating(team_stats: pd.DataFrame, config: RatingConfig,
     Off Rating = expected points scored vs average defense
     Def Rating = expected points allowed vs average offense
 
-    Components weighted 60% PPA, 40% Success Rate
-    Era-based scaling to achieve ~±30 point spread across all years
+    Components weighted per config (default 70% PPA, 30% Success Rate)
+    Dynamic scaling based on game-level EPA variance to achieve consistent spread
 
     Args:
         baseline_points: Average points per team (calculated from games data)
-        season: Year for era-based scaling adjustment
+        game_data: Game-level data for dynamic scaling calculation
     """
     df = team_stats.copy()
 
-    # Era-based scaling factors
-    # Pre-2013 data has compressed PPA values, needs higher scale
-    if season < 2013:
-        scale = 160.0  # Higher scale for older years
+    # Calculate scale from game-level net EPA variance
+    # Using game-level data (not team-level means which compress after opponent adjustment)
+    # Target: best teams ~+30-35, worst ~-20-25, total spread ~50-70 points
+    if game_data is not None and len(game_data) > 0:
+        game_net_epa = game_data["off_ppa"] - game_data["def_ppa"]
+        epa_std = game_net_epa.std()
+        scale = 25.0 / epa_std if epa_std > 0 else 100.0
     else:
-        scale = 80.0   # Standard scale for modern years (2013+)
+        scale = 100.0  # Fallback for missing data
 
-    ppa_weight = 0.60
-    sr_weight = 0.40
+    ppa_weight = config.weight_ppa
+    sr_weight = config.weight_success_rate
+    assert abs(ppa_weight + sr_weight - 1.0) < 1e-6, "Weights must sum to 1.0"
 
     # Get league average success rates for deviation calculation
     avg_off_sr = df["adj_off_sr"].mean()
@@ -565,8 +602,8 @@ def calculate_ratings(season: int, config: RatingConfig) -> pd.DataFrame:
     team_stats = team_stats[team_stats["games"] >= config.min_fbs_games]
     print(f"  {len(team_stats)} teams with {config.min_fbs_games}+ games")
 
-    # Calculate power ratings with dynamic baseline and era-based scaling
-    ratings = calculate_power_rating(team_stats, config, baseline_points, season)
+    # Calculate power ratings with dynamic baseline and variance-based scaling
+    ratings = calculate_power_rating(team_stats, config, baseline_points, game_data)
 
     # Prepare output
     output_cols = [
