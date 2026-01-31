@@ -1,15 +1,19 @@
 """
 College Football Power Rating System
 =====================================
-A PPA (EPA) and success rate-based power rating with iterative opponent adjustment.
+A hybrid rating combining:
+1. EPA (PPA) + Success Rate efficiency metrics
+2. SRS (Simple Rating System) from actual margins
 
 Features:
 - Play-by-play PPA aggregated per team
 - Success rate calculated from down/distance thresholds
+- SRS from actual game margins with opponent adjustment
+- Blended final rating (60% efficiency, 40% SRS)
 - Iterative opponent adjustment (15 rounds)
 - Recency weighting for in-season updates
 
-Data source: collegefootballdata.com API (play-by-play)
+Data source: collegefootballdata.com API
 
 Success Rate Definition:
 - 1st down: gain >= 50% of yards to go
@@ -480,11 +484,105 @@ def calculate_opponent_adjusted_metrics(
 
 
 # =============================================================================
+# SRS (SIMPLE RATING SYSTEM) CALCULATION
+# =============================================================================
+
+def calculate_srs(games: pd.DataFrame, fbs_teams: set, iterations: int = 10,
+                  hfa_points: float = 2.5) -> pd.DataFrame:
+    """
+    Calculate SRS (Simple Rating System) from actual game margins.
+
+    SRS = Average margin of victory adjusted for opponent strength
+
+    Algorithm:
+    1. For each game, calculate margin adjusted for home field
+    2. Iteratively adjust each team's rating based on opponent ratings
+    3. Normalize to mean 0
+
+    Args:
+        games: DataFrame with homeTeam, awayTeam, homePoints, awayPoints, neutralSite
+        fbs_teams: Set of FBS team names
+        iterations: Number of adjustment iterations
+        hfa_points: Home field advantage in points
+
+    Returns:
+        DataFrame with team, srs columns
+    """
+    # Filter to completed FBS vs FBS games
+    games_clean = games[
+        games["homePoints"].notna() &
+        games["awayPoints"].notna() &
+        games["homeTeam"].isin(fbs_teams) &
+        games["awayTeam"].isin(fbs_teams)
+    ].copy()
+
+    if len(games_clean) == 0:
+        return pd.DataFrame(columns=["team", "srs"])
+
+    # Calculate margin with HFA adjustment and MOV cap
+    games_clean["neutral"] = games_clean.get("neutralSite", False).fillna(False)
+    games_clean["hfa"] = games_clean["neutral"].apply(lambda x: 0 if x else hfa_points)
+    games_clean["margin_raw"] = games_clean["homePoints"] - games_clean["awayPoints"]
+    # Cap margin at ±28 points to prevent blowouts from skewing ratings
+    games_clean["margin"] = games_clean["margin_raw"].clip(-28, 28)
+
+    # Build game-level MOV table (one row per team per game)
+    home_games = games_clean[["homeTeam", "awayTeam", "margin", "hfa"]].copy()
+    home_games.columns = ["team", "opponent", "margin", "hfa"]
+    home_games["mov"] = home_games["margin"] - home_games["hfa"]
+
+    away_games = games_clean[["awayTeam", "homeTeam", "margin", "hfa"]].copy()
+    away_games.columns = ["team", "opponent", "margin", "hfa"]
+    away_games["mov"] = -away_games["margin"] + away_games["hfa"]
+
+    games_srs = pd.concat([home_games[["team", "opponent", "mov"]],
+                           away_games[["team", "opponent", "mov"]]], ignore_index=True)
+
+    # Get unique teams
+    teams = sorted(games_srs["team"].unique())
+    n = len(teams)
+
+    # Initialize ratings to 0
+    ratings = {team: 0.0 for team in teams}
+
+    # Iterative adjustment
+    for _ in range(iterations):
+        new_ratings = {}
+
+        for team in teams:
+            team_games = games_srs[games_srs["team"] == team]
+            if len(team_games) == 0:
+                new_ratings[team] = 0.0
+                continue
+
+            # Adjusted MOV = raw MOV + opponent rating
+            adjusted_movs = []
+            for _, game in team_games.iterrows():
+                opp_rating = ratings.get(game["opponent"], 0.0)
+                adjusted_movs.append(game["mov"] + opp_rating)
+
+            new_ratings[team] = np.mean(adjusted_movs)
+
+        # Normalize to mean 0
+        mean_rating = np.mean(list(new_ratings.values()))
+        ratings = {team: rating - mean_rating for team, rating in new_ratings.items()}
+
+    # Create output DataFrame
+    srs_df = pd.DataFrame([
+        {"team": team, "srs": round(rating, 2)}
+        for team, rating in ratings.items()
+    ])
+
+    return srs_df.sort_values("srs", ascending=False).reset_index(drop=True)
+
+
+# =============================================================================
 # POWER RATING CALCULATION
 # =============================================================================
 
 def calculate_power_rating(team_stats: pd.DataFrame, config: RatingConfig,
-                          baseline_points: float = 28.0, game_data: pd.DataFrame = None) -> pd.DataFrame:
+                          baseline_points: float = 28.0, game_data: pd.DataFrame = None,
+                          srs_ratings: pd.DataFrame = None) -> pd.DataFrame:
     """
     Calculate final power rating (IPR) from adjusted metrics.
 
@@ -540,8 +638,25 @@ def calculate_power_rating(team_stats: pd.DataFrame, config: RatingConfig,
     # Def Rating = baseline + adjustment
     df["def_rating"] = baseline_points + df["def_adjustment"]
 
-    # IPR = Off Rating - Def Rating = expected margin
-    df["power_rating"] = df["off_rating"] - df["def_rating"]
+    # EPA Rating = Off Rating - Def Rating = expected margin from efficiency
+    df["epa_rating"] = df["off_rating"] - df["def_rating"]
+
+    # Blend with SRS if available (60% EPA, 40% SRS)
+    epa_weight = 0.60
+    srs_weight = 0.40
+
+    if srs_ratings is not None and len(srs_ratings) > 0:
+        # Merge SRS ratings
+        df = df.merge(srs_ratings[["team", "srs"]], on="team", how="left")
+        df["srs"] = df["srs"].fillna(0.0)
+
+        # Blend the ratings
+        df["power_rating"] = (epa_weight * df["epa_rating"]) + (srs_weight * df["srs"])
+        print(f"  Blended rating: {epa_weight:.0%} EPA + {srs_weight:.0%} SRS")
+    else:
+        df["srs"] = 0.0
+        df["power_rating"] = df["epa_rating"]
+        print(f"  Using EPA-only rating (no SRS data)")
 
     # Rank teams
     df = df.sort_values("power_rating", ascending=False)
@@ -602,14 +717,22 @@ def calculate_ratings(season: int, config: RatingConfig) -> pd.DataFrame:
     team_stats = team_stats[team_stats["games"] >= config.min_fbs_games]
     print(f"  {len(team_stats)} teams with {config.min_fbs_games}+ games")
 
+    # Calculate SRS from actual margins
+    print(f"  Calculating SRS from game margins...")
+    srs_ratings = calculate_srs(games, fbs_teams)
+    print(f"    SRS calculated for {len(srs_ratings)} teams")
+    if len(srs_ratings) > 0:
+        print(f"    SRS range: {srs_ratings['srs'].min():.1f} to {srs_ratings['srs'].max():.1f}")
+
     # Calculate power ratings with dynamic baseline and variance-based scaling
-    ratings = calculate_power_rating(team_stats, config, baseline_points, game_data)
+    ratings = calculate_power_rating(team_stats, config, baseline_points, game_data, srs_ratings)
 
     # Prepare output
     output_cols = [
         "rank", "team", "power_rating", "off_rating", "def_rating",
         "adj_off_ppa", "adj_def_ppa",
         "adj_off_sr", "adj_def_sr",
+        "srs", "epa_rating",
         "games"
     ]
 
@@ -622,6 +745,8 @@ def calculate_ratings(season: int, config: RatingConfig) -> pd.DataFrame:
         "adj_def_ppa": 3,
         "adj_off_sr": 3,
         "adj_def_sr": 3,
+        "srs": 1,
+        "epa_rating": 1,
     })
 
     print(f"\nTop 10 Teams:")
