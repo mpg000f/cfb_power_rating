@@ -75,7 +75,8 @@ def fetch_games(season: int, config: RatingConfig) -> pd.DataFrame:
     print(f"  Fetching games for {season}...")
 
     url = f"{config.api_base_url}/games"
-    params = {"year": season, "seasonType": "regular", "division": "fbs"}
+    # Don't filter by division - we want all games involving FBS teams (including vs FCS)
+    params = {"year": season, "seasonType": "regular"}
 
     response = requests.get(url, headers=get_api_headers(config), params=params)
     response.raise_for_status()
@@ -727,14 +728,52 @@ def calculate_ratings(season: int, config: RatingConfig) -> pd.DataFrame:
     # Calculate power ratings with dynamic baseline and variance-based scaling
     ratings = calculate_power_rating(team_stats, config, baseline_points, game_data, srs_ratings)
 
+    # Calculate win-loss records from games
+    print(f"  Calculating team records...")
+    records = {}
+    for _, game in games.iterrows():
+        home = game.get('homeTeam') if pd.notna(game.get('homeTeam')) else game.get('home_team')
+        away = game.get('awayTeam') if pd.notna(game.get('awayTeam')) else game.get('away_team')
+        # Don't use 'or' for scores - 0 is a valid score but falsy in Python
+        home_pts = game.get('homePoints') if pd.notna(game.get('homePoints')) else game.get('home_points')
+        away_pts = game.get('awayPoints') if pd.notna(game.get('awayPoints')) else game.get('away_points')
+
+        if pd.isna(home_pts) or pd.isna(away_pts):
+            continue
+
+        for team in [home, away]:
+            if team not in records:
+                records[team] = {'wins': 0, 'losses': 0}
+
+        if home_pts > away_pts:
+            records[home]['wins'] += 1
+            records[away]['losses'] += 1
+        elif away_pts > home_pts:
+            records[away]['wins'] += 1
+            records[home]['losses'] += 1
+
+    records_df = pd.DataFrame([
+        {'team': team, 'wins': r['wins'], 'losses': r['losses'],
+         'record': f"{r['wins']}-{r['losses']}"}
+        for team, r in records.items()
+    ])
+
+    # Merge records with ratings
+    if len(records_df) > 0:
+        ratings = ratings.merge(records_df[['team', 'record', 'wins', 'losses']], on='team', how='left')
+
     # Prepare output
     output_cols = [
-        "rank", "team", "power_rating", "off_rating", "def_rating",
+        "rank", "team", "power_rating", "record", "wins", "losses",
+        "off_rating", "def_rating",
         "adj_off_ppa", "adj_def_ppa",
         "adj_off_sr", "adj_def_sr",
         "srs", "epa_rating",
         "games"
     ]
+
+    # Only include columns that exist
+    output_cols = [c for c in output_cols if c in ratings.columns]
 
     result = ratings[output_cols].copy()
     result = result.round({
