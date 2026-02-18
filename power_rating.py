@@ -683,6 +683,14 @@ def calculate_ratings(season: int, config: RatingConfig) -> pd.DataFrame:
     fbs_teams = get_fbs_teams(games)
     print(f"  Found {len(fbs_teams)} FBS teams")
 
+    # Extract team -> conference mapping from games
+    conf_map = {}
+    for col_team, col_conf in [('homeTeam', 'homeConference'), ('awayTeam', 'awayConference')]:
+        if col_conf in games.columns:
+            for _, row in games[[col_team, col_conf]].drop_duplicates().iterrows():
+                if pd.notna(row[col_conf]) and pd.notna(row[col_team]):
+                    conf_map[row[col_team]] = row[col_conf]
+
     # Calculate dynamic baseline from actual FBS scoring
     baseline_points = 28.0  # Default fallback
     if "homeClassification" in games.columns:
@@ -762,9 +770,13 @@ def calculate_ratings(season: int, config: RatingConfig) -> pd.DataFrame:
     if len(records_df) > 0:
         ratings = ratings.merge(records_df[['team', 'record', 'wins', 'losses']], on='team', how='left')
 
+    # Add conference column
+    if conf_map:
+        ratings['conference'] = ratings['team'].map(conf_map)
+
     # Prepare output
     output_cols = [
-        "rank", "team", "power_rating", "record", "wins", "losses",
+        "rank", "team", "conference", "power_rating", "record", "wins", "losses",
         "off_rating", "def_rating",
         "adj_off_ppa", "adj_def_ppa",
         "adj_off_sr", "adj_def_sr",
