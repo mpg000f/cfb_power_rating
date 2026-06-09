@@ -49,7 +49,7 @@ def load_returning_production(year: int) -> pd.DataFrame | None:
 
 
 def blend_ratings(target_year: int,
-                  weights: tuple = (0.6, 0.3, 0.1)) -> pd.DataFrame:
+                  weights: tuple = (0.55, 0.30, 0.15)) -> pd.DataFrame:
     """
     Blend 3 prior seasons into a single preseason baseline.
     Uses available years gracefully (renormalizes weights if a year is missing).
@@ -141,23 +141,38 @@ def apply_returning_production(blended: pd.DataFrame,
     df["scaled_def"] = df["scaled_def"].fillna(0.0)
     df["Ret_Prod"] = df["Ret_Prod"].fillna(rp["Ret_Prod"].mean())
 
-    # Apply adjustments
+    # Symmetric RP adjustment: good and bad returning production are trusted
+    # equally. The old asymmetric version penalized low RP at double the rate,
+    # but in the transfer-portal era low returning production no longer reliably
+    # means a young/gutted team (they reload via the portal), so the double
+    # penalty was the least defensible part of the model.
+    rp_weight_pos = 1.5   # reward per std dev above average
+    rp_weight_neg = 1.5   # penalty per std dev below average
+    max_rp_adj = 3.0      # hard cap on adjustment in either direction
+
+    def asymmetric_adj(scaled):
+        return np.where(scaled >= 0,
+                        (rp_weight_pos * scaled).clip(0, max_rp_adj),
+                        (rp_weight_neg * scaled).clip(-max_rp_adj, 0))
+
+    off_adj = asymmetric_adj(df["scaled_off"].values)
+    def_adj = asymmetric_adj(df["scaled_def"].values)
+
     # Off: more returning offense → higher off_rating
-    df["adj_off"] = df["off_rating"] + rp_weight * df["scaled_off"]
+    df["adj_off"] = df["off_rating"] + off_adj
     # Def: more returning defense → lower def_rating (lower = better defense in this system)
-    df["adj_def"] = df["def_rating"] - rp_weight * df["scaled_def"]
+    df["adj_def"] = df["def_rating"] - def_adj
 
-    # Recompute epa_rating and power_rating from adjusted off/def
+    # power_rating = adj_off - adj_def (the 3-year blend already captures sustained
+    # performance; no need to also blend in historical SRS)
     df["adj_epa"] = df["adj_off"] - df["adj_def"]
-
-    # Blend adjusted EPA with blended SRS (60/40 as in the in-season model)
-    df["adj_power"] = 0.6 * df["adj_epa"] + 0.4 * df["srs"]
+    df["adj_power"] = df["adj_epa"]
 
     return df
 
 
 def build_preseason_ratings(target_year: int,
-                             blend_weights: tuple = (0.6, 0.3, 0.1),
+                             blend_weights: tuple = (0.55, 0.30, 0.15),
                              rp_weight: float = 3.0) -> pd.DataFrame:
     print(f"\nGenerating preseason {target_year} CFB ratings...")
 
@@ -167,7 +182,28 @@ def build_preseason_ratings(target_year: int,
     # Step 2: Adjust for returning production
     df = apply_returning_production(blended, target_year, rp_weight)
 
-    # Step 3: Build output in the same format as in-season ratings
+    # Step 3: Normalize to match historical in-season distribution.
+    # The preseason spread is wider than in-season because we're blending
+    # efficiency ratings without game-level noise compression. Rescale so
+    # mean=0 and std matches the average std of the blended prior seasons.
+    prior_stds = []
+    for yr in [target_year - 1, target_year - 2, target_year - 3]:
+        s = load_season_ratings(yr)
+        if s is not None:
+            prior_stds.append(s["power_rating"].std())
+    target_std = sum(prior_stds) / len(prior_stds) if prior_stds else 12.5
+
+    raw_mean = df["adj_power"].mean()
+    raw_std  = df["adj_power"].std()
+    scale    = target_std / raw_std if raw_std > 0 else 1.0
+
+    df["adj_power"] = (df["adj_power"] - raw_mean) * scale
+    df["adj_off"]   = (df["adj_off"]   - df["adj_off"].mean())   * scale + df["adj_off"].mean()
+    df["adj_def"]   = (df["adj_def"]   - df["adj_def"].mean())   * scale + df["adj_def"].mean()
+
+    print(f"  Scale factor: {scale:.3f} (raw std {raw_std:.1f} → target std {target_std:.1f})")
+
+    # Step 4: Build output in the same format as in-season ratings
     df = df.sort_values("adj_power", ascending=False).reset_index(drop=True)
     df["rank"] = range(1, len(df) + 1)
 
@@ -198,7 +234,7 @@ def main():
                         help="Target season year (e.g. 2026)")
     parser.add_argument("--rp-weight", type=float, default=3.0,
                         help="Points of off/def rating shift per 1 std dev of returning production (default: 3.0)")
-    parser.add_argument("--weights", type=str, default="0.6,0.3,0.1",
+    parser.add_argument("--weights", type=str, default="0.55,0.30,0.15",
                         help="Blend weights for years t-1,t-2,t-3 (comma-separated, default: 0.6,0.3,0.1)")
     args = parser.parse_args()
 
