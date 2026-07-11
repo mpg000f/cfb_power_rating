@@ -670,26 +670,56 @@ def calculate_power_rating(team_stats: pd.DataFrame, config: RatingConfig,
 # MAIN RATING PIPELINE
 # =============================================================================
 
-def calculate_ratings(season: int, config: RatingConfig) -> pd.DataFrame:
+def _effective_week(games: pd.DataFrame) -> pd.Series:
+    """Unified week for games: postseason maps to 16 to match the plays convention."""
+    week = pd.to_numeric(games.get("week"), errors="coerce")
+    if "seasonType" in games.columns:
+        is_post = games["seasonType"].astype(str).str.lower() == "postseason"
+        return week.where(~is_post, 16)
+    return week
+
+
+def calculate_ratings(season: int, config: RatingConfig,
+                      through_week: int = None,
+                      prefetched: tuple = None) -> pd.DataFrame:
     """
     Main function to calculate CFB power ratings for a season.
+
+    through_week: if set, only games/plays from weeks <= through_week are used,
+        producing an "as of week N" snapshot (postseason counts as week 16).
+    prefetched: optional (games, plays) tuple to skip API calls when generating
+        many weekly snapshots for one season.
     """
+    label = f"{season}" + (f" through week {through_week}" if through_week else "")
     print(f"\n{'='*60}")
-    print(f"Calculating CFB Power Ratings for {season}")
+    print(f"Calculating CFB Power Ratings for {label}")
     print(f"{'='*60}")
 
-    # Fetch games to get FBS teams and calculate baseline scoring
-    games = fetch_games(season, config)
-    fbs_teams = get_fbs_teams(games)
+    # Fetch full-season games/plays (or reuse prefetched). FBS membership and
+    # conference are derived from the FULL season so teams are recognized even
+    # in weeks they haven't played an FBS opponent yet.
+    if prefetched is not None:
+        games_full, plays = prefetched
+    else:
+        games_full = fetch_games(season, config)
+        plays = fetch_all_plays(season, config)
+
+    fbs_teams = get_fbs_teams(games_full)
     print(f"  Found {len(fbs_teams)} FBS teams")
 
     # Extract team -> conference mapping from games
     conf_map = {}
     for col_team, col_conf in [('homeTeam', 'homeConference'), ('awayTeam', 'awayConference')]:
-        if col_conf in games.columns:
-            for _, row in games[[col_team, col_conf]].drop_duplicates().iterrows():
+        if col_conf in games_full.columns:
+            for _, row in games_full[[col_team, col_conf]].drop_duplicates().iterrows():
                 if pd.notna(row[col_conf]) and pd.notna(row[col_team]):
                     conf_map[row[col_team]] = row[col_conf]
+
+    # Restrict to games through the target week
+    if through_week is not None:
+        games = games_full[_effective_week(games_full) <= through_week].copy()
+    else:
+        games = games_full
 
     # Calculate dynamic baseline from actual FBS scoring
     baseline_points = 28.0  # Default fallback
@@ -704,15 +734,14 @@ def calculate_ratings(season: int, config: RatingConfig) -> pd.DataFrame:
             baseline_points = (avg_home + avg_away) / 2
     print(f"  Season avg scoring: {baseline_points:.1f} ppg")
 
-    # Fetch play-by-play data
-    plays = fetch_all_plays(season, config)
-
     if len(plays) == 0:
         print("  Error: No play data found")
         return pd.DataFrame()
 
     # Process plays to game-level stats
     game_data, ppa_std = process_plays(plays)
+    if through_week is not None and "week" in game_data.columns:
+        game_data = game_data[game_data["week"] <= through_week]
     print(f"  Processed {len(game_data)} team-game records (raw PPA std: {ppa_std:.3f})")
 
     # Filter to FBS vs FBS

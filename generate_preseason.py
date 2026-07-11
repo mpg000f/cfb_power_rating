@@ -73,8 +73,12 @@ def blend_ratings(target_year: int,
     total_w = sum(actual_weights)
     actual_weights = [w / total_w for w in actual_weights]
 
-    # Collect all teams across all years
-    all_teams = pd.concat([df[["team", "team_lower"]] for _, df in seasons]).drop_duplicates("team_lower")
+    # Collect all teams across all years. reset_index so the concatenated frames
+    # don't carry duplicate index labels (which break the aligned += below for
+    # certain team-set overlaps).
+    all_teams = (pd.concat([df[["team", "team_lower"]] for _, df in seasons])
+                 .drop_duplicates("team_lower")
+                 .reset_index(drop=True))
 
     blended = all_teams.copy()
 
@@ -236,6 +240,9 @@ def main():
                         help="Points of off/def rating shift per 1 std dev of returning production (default: 3.0)")
     parser.add_argument("--weights", type=str, default="0.55,0.30,0.15",
                         help="Blend weights for years t-1,t-2,t-3 (comma-separated, default: 0.6,0.3,0.1)")
+    parser.add_argument("--baseline-only", action="store_true",
+                        help="Only write ratings_{target}_preseason.csv; do NOT overwrite "
+                             "ratings_{target}.csv (use when backdating completed seasons)")
     args = parser.parse_args()
 
     weights = tuple(float(w) for w in args.weights.split(","))
@@ -245,15 +252,17 @@ def main():
 
     ratings = build_preseason_ratings(args.target, weights, args.rp_weight)
 
-    # Save the current-display ratings (will be overwritten by blended in-season ratings once season starts)
-    output_path = RATINGS_DIR / f"ratings_{args.target}.csv"
-    ratings.to_csv(output_path, index=False)
+    # Save the current-display ratings (overwritten by in-season ratings once the
+    # season starts). Skipped when backdating a completed season so its real
+    # final ratings_{target}.csv is preserved.
+    if not args.baseline_only:
+        output_path = RATINGS_DIR / f"ratings_{args.target}.csv"
+        ratings.to_csv(output_path, index=False)
+        print(f"\nSaved current-display ratings to: {output_path}")
 
     # Save the permanent preseason baseline (never overwritten — used for in-season blending)
     baseline_path = RATINGS_DIR / f"ratings_{args.target}_preseason.csv"
     ratings.to_csv(baseline_path, index=False)
-
-    print(f"\nSaved preseason {args.target} ratings to: {output_path}")
     print(f"Saved preseason baseline to: {baseline_path}")
     print(f"\nTop 10:")
     print(ratings[["rank", "team", "power_rating", "off_rating", "def_rating"]].head(10).to_string(index=False))

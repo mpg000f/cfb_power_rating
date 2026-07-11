@@ -1,0 +1,135 @@
+rank,team,power_rating,record,wins,losses,off_rating,def_rating,adj_off_ppa,adj_def_ppa,adj_off_sr,adj_def_sr,srs,epa_rating,games
+1,Ohio State,27.9,Preseason,0,0,41.7,13.9,,,,,23.8,31.4,0
+2,Penn State,24.6,Preseason,0,0,38.4,13.9,,,,,19.1,27.7,0
+3,Notre Dame,23.5,Preseason,0,0,36.7,13.4,,,,,19.3,26.4,0
+4,Georgia,22.6,Preseason,0,0,39.1,16.6,,,,,19.8,25.4,0
+5,Alabama,22.5,Preseason,0,0,36.7,14.4,,,,,18.0,25.2,0
+6,Oregon,21.2,Preseason,0,0,40.7,19.6,,,,,20.5,23.8,0
+7,LSU,20.2,Preseason,0,0,42.2,22.1,,,,,14.0,22.7,0
+8,Texas,19.9,Preseason,0,0,34.0,14.2,,,,,19.2,22.3,0
+9,Michigan,18.7,Preseason,0,0,33.9,15.4,,,,,15.6,21.0,0
+10,Kansas State,18.1,Preseason,0,0,36.7,18.7,,,,,13.5,20.3,0
+11,Ole Miss,17.7,Preseason,0,0,37.6,20.1,,,,,15.5,19.8,0
+12,Tennessee,17.4,Preseason,0,0,34.6,17.4,,,,,13.0,19.5,0
+13,Oklahoma,16.2,Preseason,0,0,32.4,16.4,,,,,9.0,18.1,0
+14,Texas A&M,16.1,Preseason,0,0,32.4,16.5,,,,,9.3,18.0,0
+15,Louisville,15.0,Preseason,0,0,34.5,19.6,,,,,12.1,16.8,0
+16,Clemson,14.8,Preseason,0,0,32.8,18.1,,,,,11.4,16.6,0
+17,Florida,14.7,Preseason,0,0,35.3,20.7,,,,,8.0,16.5,0
+18,Arizona State,13.5,Preseason,0,0,34.8,21.4,,,,,4.7,15.2,0
+19,USC,13.2,Preseason,0,0,39.3,26.2,,,,,11.1,14.8,0
+20,Kansas,13.1,Preseason,0,0,40.8,27.8,,,,,8.8,14.6,0
+21,Auburn,13.0,Preseason,0,0,31.4,18.5,,,,,3.6,14.6,0
+22,Miami,12.8,Preseason,0,0,36.3,23.6,,,,,9.8,14.4,0
+23,TCU,12.7,Preseason,0,0,36.0,23.5,,,,,8.8,14.2,0
+24,SMU,12.6,Preseason,0,0,32.5,20.1,,,,,10.3,14.1,0
+25,Washington,12.5,Preseason,0,0,35.8,23.5,,,,,9.5,14.0,0
+26,Missouri,12.4,Preseason,0,0,30.3,18.1,,,,,10.2,13.8,0
+27,Arkansas,11.6,Preseason,0,0,33.9,22.4,,,,,3.2,13.0,0
+28,South Carolina,11.5,Preseason,0,0,32.8,21.4,,,,,10.4,12.9,0
+29,Illinois,11.0,Preseason,0,0,34.1,23.2,,,,,5.5,12.3,0
+30,Texas Tech,10.5,Preseason,0,0,31.4,21.0,,,,,5.4,11.7,0
+31,Indiana,10.3,Preseason,0,0,32.8,22.6,,,,,7.4,11.5,0
+32,Utah,9.6,Preseason,0,0,26.4,16.9,,,,,6.0,10.7,0
+33,UCF,9.6,Preseason,0,0,33.2,23.7,,,,,3.0,10.7,0
+34,Boise State,9.0,Preseason,0,0,33.4,24.6,,,,,7.5,10.0,0
+35,Iowa State,8.9,Preseason,0,0,30.1,21.3,,,,,9.0,9.9,0
+36,Tulane,8.6,Preseason,0,0,29.9,21.5,,,,,5.0,9.5,0
+37,Georgia Tech,8.4,Preseason,0,0,31.9,23.6,,,,,2.8,9.4,0
+38,Baylor,8.2,Preseason,0,0,33.7,25.6,,,,,3.9,9.1,0
+39,Wisconsin,7.5,Preseason,0,0,28.9,21.6,,,,,4.1,8.3,0
+40,Minnesota,7.4,Preseason,0,0,28.4,21.0,,,,,6.8,8.3,0
+41,Colorado,6.9,Preseason,0,0,29.1,22.3,,,,,4.8,7.7,0
+42,Kentucky,6.8,Preseason,0,0,28.3,21.6,,,,,3.8,7.5,0
+43,Arizona,6.7,Preseason,0,0,33.2,26.7,,,,,1.3,7.4,0
+44,UCLA,6.4,Preseason,0,0,29.5,23.3,,,,,4.6,7.1,0
+45,Nebraska,6.2,Preseason,0,0,28.9,22.9,,,,,4.8,6.9,0
+46,Cincinnati,5.7,Preseason,0,0,29.6,24.0,,,,,0.4,6.3,0
+47,NC State,5.5,Preseason,0,0,29.0,23.6,,,,,1.7,6.1,0
+48,Iowa,4.3,Preseason,0,0,23.1,18.9,,,,,8.7,4.8,0
+49,Virginia Tech,4.1,Preseason,0,0,26.2,22.3,,,,,5.7,4.5,0
+50,Duke,3.7,Preseason,0,0,26.9,23.3,,,,,5.1,4.1,0
+51,Mississippi State,3.7,Preseason,0,0,28.8,25.2,,,,,-1.7,4.0,0
+52,Pittsburgh,3.5,Preseason,0,0,23.5,20.1,,,,,0.6,3.8,0
+53,Florida State,3.5,Preseason,0,0,26.0,22.7,,,,,3.1,3.8,0
+54,James Madison,3.4,Preseason,0,0,24.6,21.3,,,,,5.3,3.7,0
+55,Maryland,3.2,Preseason,0,0,27.0,23.9,,,,,2.5,3.5,0
+56,BYU,3.0,Preseason,0,0,27.2,24.4,,,,,6.9,3.2,0
+57,California,2.4,Preseason,0,0,26.9,24.6,,,,,0.8,2.6,0
+58,Rutgers,2.2,Preseason,0,0,28.8,26.7,,,,,2.7,2.4,0
+59,Oregon State,1.4,Preseason,0,0,27.5,26.2,,,,,0.4,1.5,0
+60,West Virginia,1.4,Preseason,0,0,30.0,28.7,,,,,1.9,1.4,0
+61,North Carolina,1.4,Preseason,0,0,31.2,30.0,,,,,1.8,1.4,0
+62,Houston,1.3,Preseason,0,0,24.7,23.5,,,,,-2.8,1.4,0
+63,UTSA,1.2,Preseason,0,0,27.0,26.0,,,,,-0.8,1.2,0
+64,Vanderbilt,1.0,Preseason,0,0,28.9,28.0,,,,,0.1,1.0,0
+65,South Alabama,0.9,Preseason,0,0,28.0,27.2,,,,,0.8,0.9,0
+66,Boston College,0.7,Preseason,0,0,27.2,26.6,,,,,-0.6,0.7,0
+67,Michigan State,0.1,Preseason,0,0,25.3,25.4,,,,,-3.4,-0.1,0
+68,Navy,0.0,Preseason,0,0,25.9,26.0,,,,,0.4,-0.1,0
+69,Memphis,-0.5,Preseason,0,0,30.0,30.7,,,,,3.2,-0.7,0
+70,Syracuse,-1.1,Preseason,0,0,26.8,28.0,,,,,2.0,-1.4,0
+71,Liberty,-1.2,Preseason,0,0,27.1,28.5,,,,,-1.7,-1.5,0
+72,Oklahoma State,-1.4,Preseason,0,0,28.0,29.4,,,,,-0.2,-1.7,0
+73,Troy,-1.5,Preseason,0,0,23.2,24.8,,,,,-0.9,-1.8,0
+74,Virginia,-1.5,Preseason,0,0,25.3,27.0,,,,,-4.1,-1.9,0
+75,San José State,-1.7,Preseason,0,0,25.7,27.5,,,,,-4.0,-2.0,0
+76,Ohio,-2.0,Preseason,0,0,26.5,28.7,,,,,1.8,-2.4,0
+77,South Florida,-2.6,Preseason,0,0,25.9,28.7,,,,,-7.1,-3.1,0
+78,Stanford,-3.3,Preseason,0,0,24.5,27.9,,,,,-5.7,-3.9,0
+79,Texas State,-3.6,Preseason,0,0,25.9,29.6,,,,,-0.8,-4.2,0
+80,Washington State,-3.6,Preseason,0,0,26.5,30.2,,,,,1.6,-4.2,0
+81,Toledo,-3.7,Preseason,0,0,23.1,26.9,,,,,-1.3,-4.3,0
+82,Old Dominion,-3.7,Preseason,0,0,24.4,28.3,,,,,-2.9,-4.3,0
+83,Army,-3.7,Preseason,0,0,26.9,30.7,,,,,1.8,-4.3,0
+84,Northwestern,-4.0,Preseason,0,0,19.4,23.5,,,,,-1.8,-4.6,0
+85,UNLV,-4.5,Preseason,0,0,24.9,29.5,,,,,2.4,-5.2,0
+86,Air Force,-4.9,Preseason,0,0,25.1,30.1,,,,,-4.6,-5.7,0
+87,Fresno State,-5.2,Preseason,0,0,21.3,26.7,,,,,-2.2,-6.0,0
+88,Wake Forest,-5.8,Preseason,0,0,24.3,30.3,,,,,-3.5,-6.7,0
+89,Marshall,-6.8,Preseason,0,0,20.7,27.6,,,,,0.5,-7.8,0
+90,UConn,-7.3,Preseason,0,0,21.2,28.6,,,,,-6.3,-8.3,0
+91,East Carolina,-7.4,Preseason,0,0,23.6,31.1,,,,,-5.6,-8.5,0
+92,Georgia Southern,-7.5,Preseason,0,0,26.2,33.8,,,,,-4.1,-8.6,0
+93,UAB,-7.6,Preseason,0,0,26.6,34.4,,,,,-11.5,-8.8,0
+94,Louisiana,-7.8,Preseason,0,0,25.6,33.6,,,,,-1.5,-8.9,0
+95,Jacksonville State,-7.8,Preseason,0,0,21.8,29.8,,,,,-1.7,-9.0,0
+96,Coastal Carolina,-8.5,Preseason,0,0,25.4,34.0,,,,,-5.2,-9.7,0
+97,North Texas,-8.5,Preseason,0,0,26.6,35.2,,,,,-6.3,-9.7,0
+98,Northern Illinois,-8.6,Preseason,0,0,21.2,29.9,,,,,-4.1,-9.9,0
+99,Bowling Green,-8.7,Preseason,0,0,21.6,30.4,,,,,-2.6,-9.9,0
+100,App State,-8.9,Preseason,0,0,25.2,34.3,,,,,-3.4,-10.2,0
+101,Purdue,-9.1,Preseason,0,0,23.3,32.5,,,,,-5.6,-10.4,0
+102,Colorado State,-9.2,Preseason,0,0,21.8,31.1,,,,,-8.4,-10.5,0
+103,Miami (OH),-9.3,Preseason,0,0,18.3,27.7,,,,,-0.7,-10.6,0
+104,Rice,-10.0,Preseason,0,0,19.2,29.4,,,,,-10.2,-11.5,0
+105,Wyoming,-10.1,Preseason,0,0,20.8,31.0,,,,,-7.4,-11.6,0
+106,UL Monroe,-10.8,Preseason,0,0,19.8,30.8,,,,,-11.2,-12.3,0
+107,Utah State,-10.8,Preseason,0,0,22.9,33.8,,,,,-10.2,-12.3,0
+108,Hawai'i,-10.9,Preseason,0,0,20.4,31.4,,,,,-12.9,-12.4,0
+109,Buffalo,-11.3,Preseason,0,0,16.2,27.6,,,,,-6.4,-12.8,0
+110,Western Kentucky,-11.3,Preseason,0,0,24.4,35.8,,,,,-2.8,-12.9,0
+111,Georgia State,-11.4,Preseason,0,0,22.9,34.4,,,,,-8.0,-13.0,0
+112,Sam Houston,-12.6,Preseason,0,0,17.9,30.7,,,,,-7.0,-14.4,0
+113,Florida Atlantic,-13.5,Preseason,0,0,21.8,35.4,,,,,-12.2,-15.3,0
+114,UTEP,-13.5,Preseason,0,0,18.8,32.4,,,,,-15.2,-15.3,0
+115,Central Michigan,-13.5,Preseason,0,0,19.3,32.9,,,,,-14.3,-15.4,0
+116,Middle Tennessee,-13.6,Preseason,0,0,21.0,34.8,,,,,-15.7,-15.5,0
+117,San Diego State,-13.9,Preseason,0,0,18.3,32.3,,,,,-12.9,-15.8,0
+118,Nevada,-14.8,Preseason,0,0,19.5,34.4,,,,,-12.6,-16.9,0
+119,Arkansas State,-14.8,Preseason,0,0,22.9,37.9,,,,,-8.3,-16.9,0
+120,Charlotte,-15.5,Preseason,0,0,17.2,32.8,,,,,-14.0,-17.6,0
+121,Louisiana Tech,-15.5,Preseason,0,0,15.5,31.1,,,,,-12.4,-17.6,0
+122,Temple,-16.1,Preseason,0,0,17.2,33.4,,,,,-16.5,-18.3,0
+123,New Mexico,-16.5,Preseason,0,0,24.4,41.0,,,,,-13.9,-18.8,0
+124,New Mexico State,-16.5,Preseason,0,0,20.0,36.7,,,,,-14.2,-18.8,0
+125,Florida International,-17.5,Preseason,0,0,16.0,33.7,,,,,-13.5,-19.9,0
+126,Akron,-18.6,Preseason,0,0,17.0,35.7,,,,,-12.8,-21.1,0
+127,Western Michigan,-18.9,Preseason,0,0,19.4,38.4,,,,,-9.3,-21.4,0
+128,Tulsa,-19.0,Preseason,0,0,17.8,36.9,,,,,-17.7,-21.6,0
+129,Massachusetts,-19.7,Preseason,0,0,19.6,39.5,,,,,-16.5,-22.4,0
+130,Ball State,-20.5,Preseason,0,0,17.0,37.6,,,,,-12.0,-23.3,0
+131,Eastern Michigan,-21.4,Preseason,0,0,16.0,37.6,,,,,-12.3,-24.3,0
+132,Southern Miss,-22.4,Preseason,0,0,15.3,37.8,,,,,-17.6,-25.4,0
+133,Kennesaw State,-23.5,Preseason,0,0,11.1,34.8,,,,,-21.2,-26.7,0
+134,Kent State,-28.9,Preseason,0,0,12.1,41.1,,,,,-21.5,-32.8,0
