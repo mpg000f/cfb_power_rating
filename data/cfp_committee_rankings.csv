@@ -1,0 +1,276 @@
+season,team,committee_rank
+2014,Alabama,1
+2014,Oregon,2
+2014,Florida State,3
+2014,Ohio State,4
+2014,Baylor,5
+2014,TCU,6
+2014,Mississippi State,7
+2014,Michigan State,8
+2014,Ole Miss,9
+2014,Arizona,10
+2014,Kansas State,11
+2014,Georgia Tech,12
+2014,Georgia,13
+2014,UCLA,14
+2014,Arizona State,15
+2014,Missouri,16
+2014,Clemson,17
+2014,Wisconsin,18
+2014,Auburn,19
+2014,Boise State,20
+2014,Louisville,21
+2014,Utah,22
+2014,LSU,23
+2014,USC,24
+2014,Minnesota,25
+2015,Clemson,1
+2015,Alabama,2
+2015,Michigan State,3
+2015,Oklahoma,4
+2015,Iowa,5
+2015,Stanford,6
+2015,Ohio State,7
+2015,Notre Dame,8
+2015,Florida State,9
+2015,North Carolina,10
+2015,TCU,11
+2015,Ole Miss,12
+2015,Northwestern,13
+2015,Michigan,14
+2015,Oregon,15
+2015,Oklahoma State,16
+2015,Baylor,17
+2015,Houston,18
+2015,Florida,19
+2015,LSU,20
+2015,Navy,21
+2015,Utah,22
+2015,Tennessee,23
+2015,Temple,24
+2015,USC,25
+2016,Alabama,1
+2016,Clemson,2
+2016,Ohio State,3
+2016,Washington,4
+2016,Penn State,5
+2016,Michigan,6
+2016,Oklahoma,7
+2016,Wisconsin,8
+2016,USC,9
+2016,Colorado,10
+2016,Florida State,11
+2016,Oklahoma State,12
+2016,Louisville,13
+2016,Auburn,14
+2016,Western Michigan,15
+2016,West Virginia,16
+2016,Florida,17
+2016,Stanford,18
+2016,Utah,19
+2016,LSU,20
+2016,Tennessee,21
+2016,Virginia Tech,22
+2016,Pittsburgh,23
+2016,Temple,24
+2016,Navy,25
+2017,Clemson,1
+2017,Oklahoma,2
+2017,Georgia,3
+2017,Alabama,4
+2017,Ohio State,5
+2017,Wisconsin,6
+2017,Auburn,7
+2017,USC,8
+2017,Penn State,9
+2017,Miami,10
+2017,Washington,11
+2017,UCF,12
+2017,Stanford,13
+2017,Notre Dame,14
+2017,TCU,15
+2017,Michigan State,16
+2017,LSU,17
+2017,Washington State,18
+2017,Oklahoma State,19
+2017,Memphis,20
+2017,Northwestern,21
+2017,Virginia Tech,22
+2017,Mississippi State,23
+2017,NC State,24
+2017,Boise State,25
+2018,Alabama,1
+2018,Clemson,2
+2018,Notre Dame,3
+2018,Oklahoma,4
+2018,Georgia,5
+2018,Ohio State,6
+2018,Michigan,7
+2018,UCF,8
+2018,Washington,9
+2018,Florida,10
+2018,LSU,11
+2018,Penn State,12
+2018,Washington State,13
+2018,Kentucky,14
+2018,Texas,15
+2018,West Virginia,16
+2018,Utah,17
+2018,Mississippi State,18
+2018,Texas A&M,19
+2018,Syracuse,20
+2018,Fresno State,21
+2018,Northwestern,22
+2018,Missouri,23
+2018,Iowa State,24
+2018,Boise State,25
+2019,LSU,1
+2019,Ohio State,2
+2019,Clemson,3
+2019,Oklahoma,4
+2019,Georgia,5
+2019,Oregon,6
+2019,Baylor,7
+2019,Wisconsin,8
+2019,Florida,9
+2019,Penn State,10
+2019,Utah,11
+2019,Auburn,12
+2019,Alabama,13
+2019,Michigan,14
+2019,Notre Dame,15
+2019,Iowa,16
+2019,Memphis,17
+2019,Minnesota,18
+2019,Boise State,19
+2019,App State,20
+2019,Cincinnati,21
+2019,USC,22
+2019,Navy,23
+2019,Virginia,24
+2019,Oklahoma State,25
+2021,Alabama,1
+2021,Michigan,2
+2021,Georgia,3
+2021,Cincinnati,4
+2021,Notre Dame,5
+2021,Ohio State,6
+2021,Baylor,7
+2021,Ole Miss,8
+2021,Oklahoma State,9
+2021,Michigan State,10
+2021,Utah,11
+2021,Pittsburgh,12
+2021,BYU,13
+2021,Oregon,14
+2021,Iowa,15
+2021,Oklahoma,16
+2021,Wake Forest,17
+2021,NC State,18
+2021,Clemson,19
+2021,Houston,20
+2021,Arkansas,21
+2021,Kentucky,22
+2021,Louisiana,23
+2021,San Diego State,24
+2021,Texas A&M,25
+2022,Georgia,1
+2022,Michigan,2
+2022,TCU,3
+2022,Ohio State,4
+2022,Alabama,5
+2022,Tennessee,6
+2022,Clemson,7
+2022,Utah,8
+2022,Kansas State,9
+2022,USC,10
+2022,Penn State,11
+2022,Washington,12
+2022,Florida State,13
+2022,Oregon State,14
+2022,Oregon,15
+2022,Tulane,16
+2022,LSU,17
+2022,UCLA,18
+2022,South Carolina,19
+2022,Texas,20
+2022,Notre Dame,21
+2022,Mississippi State,22
+2022,NC State,23
+2022,Troy,24
+2022,UTSA,25
+2023,Michigan,1
+2023,Washington,2
+2023,Texas,3
+2023,Alabama,4
+2023,Georgia,5
+2023,Florida State,5
+2023,Ohio State,7
+2023,Oregon,8
+2023,Missouri,9
+2023,Penn State,10
+2023,Ole Miss,11
+2023,Oklahoma,12
+2023,LSU,13
+2023,Arizona,14
+2023,Louisville,15
+2023,Notre Dame,16
+2023,Iowa,17
+2023,NC State,18
+2023,Oregon State,19
+2023,Oklahoma State,20
+2023,Tennessee,21
+2023,Clemson,22
+2023,Liberty,23
+2023,SMU,24
+2023,Kansas State,25
+2024,Oregon,1
+2024,Georgia,2
+2024,Texas,3
+2024,Penn State,4
+2024,Notre Dame,5
+2024,Ohio State,6
+2024,Tennessee,7
+2024,Indiana,8
+2024,Boise State,9
+2024,SMU,10
+2024,Alabama,11
+2024,Arizona State,12
+2024,Miami,13
+2024,Ole Miss,14
+2024,South Carolina,15
+2024,Clemson,16
+2024,BYU,17
+2024,Iowa State,18
+2024,Missouri,19
+2024,Illinois,20
+2024,Syracuse,21
+2024,Army,22
+2024,Colorado,23
+2024,UNLV,24
+2024,Memphis,25
+2025,Indiana,1
+2025,Ohio State,2
+2025,Georgia,3
+2025,Texas Tech,4
+2025,Oregon,5
+2025,Ole Miss,6
+2025,Texas A&M,7
+2025,Oklahoma,8
+2025,Alabama,9
+2025,Miami,10
+2025,Notre Dame,11
+2025,BYU,12
+2025,Texas,13
+2025,Vanderbilt,14
+2025,Utah,15
+2025,USC,16
+2025,Arizona,17
+2025,Michigan,18
+2025,Virginia,19
+2025,Tulane,20
+2025,Houston,21
+2025,Georgia Tech,22
+2025,Iowa,23
+2025,James Madison,24
+2025,North Texas,25
