@@ -92,6 +92,11 @@ def main():
         if len(ratings) < args.min_teams:
             print(f"  Week {wk}: only {len(ratings)} teams rated, skipping")
             continue
+        if "blend_weight" in ratings and (ratings["blend_weight"] > 0).sum() == 0:
+            # Nothing survived the blend guard, so this snapshot would just be
+            # a copy of the preseason baseline with a meaningless zero delta.
+            print(f"  Week {wk}: no team has a usable in-season rating yet, skipping")
+            continue
         path = out_dir / f"week_{wk:02d}.csv"
         ratings.to_csv(path, index=False)
         saved.append(wk)

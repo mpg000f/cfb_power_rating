@@ -39,6 +39,26 @@ def load_api_key() -> str:
     return api_key
 
 
+def _is_degenerate(row, eps: float = 1e-6) -> bool:
+    """True if a team's in-season rating carries no opponent-adjusted signal.
+
+    The iterative adjustment drives every component to exactly league average
+    when a team's opponents share no opponents of their own, which is the norm
+    in week 1. Such a rating is indistinguishable from "perfectly average" and
+    must not be blended.
+    """
+    components = ("epa_rating_cur", "srs_cur", "adj_off_ppa_cur", "adj_def_ppa_cur")
+    seen = False
+    for col in components:
+        val = row.get(col)
+        if val is None or pd.isna(val):
+            continue
+        seen = True
+        if abs(float(val)) > eps:
+            return False
+    return seen
+
+
 def blend_with_preseason(in_season: pd.DataFrame, season: int,
                           per_game_step: float = 0.15) -> pd.DataFrame:
     """
@@ -69,6 +89,7 @@ def blend_with_preseason(in_season: pd.DataFrame, season: int,
     ).reset_index()
 
     results = []
+    skipped_new = []
     for _, row in merged.iterrows():
         games = row.get("games_cur") if pd.notna(row.get("games_cur")) else 0
         games = int(games) if not np.isnan(float(games)) else 0
@@ -79,11 +100,24 @@ def blend_with_preseason(in_season: pd.DataFrame, season: int,
         if not has_preseason and not has_current:
             continue
 
+        # Through week 1 every team has exactly one FBS opponent, so the
+        # opponent adjustment has nothing to solve against: each team's only
+        # opponent is its exact mirror and every adjusted component converges
+        # to league average. Blending that in shrinks a team toward zero with
+        # no information about whether it won, so hold such teams at their
+        # preseason prior until a shared-opponent graph exists (week 2).
+        informative = has_current and not _is_degenerate(row)
+
         if not has_preseason:
-            # New team with no preseason baseline — use in-season as-is
+            # New to FBS, so there is no prior to fall back on. Without a
+            # usable in-season rating there is no basis for rating them at
+            # all — leaving them in would plant them at exactly average.
+            if not informative:
+                skipped_new.append(row.get("team_cur"))
+                continue
             w = 1.0
         else:
-            w = min(games * per_game_step, 1.0) if has_current else 0.0
+            w = min(games * per_game_step, 1.0) if informative else 0.0
 
         def blend(cur, pre):
             if pd.isna(cur) or not has_current:
@@ -131,7 +165,13 @@ def blend_with_preseason(in_season: pd.DataFrame, season: int,
 
     n_inseason = (df["blend_weight"] > 0).sum()
     n_preseason_only = (df["blend_weight"] == 0).sum()
+    n_held = int(sum(1 for _, r in merged.iterrows()
+                     if pd.notna(r.get("power_rating_cur")) and _is_degenerate(r)))
     print(f"  Blend result: {n_inseason} teams blending in-season, {n_preseason_only} on preseason only")
+    if n_held:
+        print(f"  ({n_held} played but held at preseason — no shared-opponent signal yet)")
+    if skipped_new:
+        print(f"  (omitted, new to FBS with no usable rating yet: {', '.join(sorted(skipped_new))})")
 
     return df
 
