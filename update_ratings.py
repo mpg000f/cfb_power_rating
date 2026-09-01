@@ -159,6 +159,13 @@ def main():
         print("\nGet your API key at: https://collegefootballdata.com/key")
         exit(1)
 
+    # Match generate_weekly.py: teams enter the in-season rating as soon as they
+    # have any FBS games. The blend weight (games * 0.15) damps small samples
+    # heavily, so early ratings stay anchored to the preseason prior. Leaving
+    # this at the default 6 would freeze the season table on preseason until
+    # mid-October while the weekly snapshots blended from week 1.
+    config.min_fbs_games = 1
+
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting ratings update")
 
     try:
