@@ -45,6 +45,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from update_ratings import FIRST_ANCHORED_SEASON
 from power_rating import (RatingConfig, calculate_ratings, calculate_srs,
                           fetch_games, fetch_all_plays, get_fbs_teams)
 
@@ -112,7 +113,23 @@ def regular_season_inputs(season: int, config: RatingConfig) -> tuple:
 
 def full_season_inputs(season: int, config: RatingConfig) -> tuple:
     """Published full-season ratings and every game; returns (ratings, games, srs)."""
-    path = RATINGS_DIR / f"ratings_{season}.csv"
+    # Prefer the preseason-free file when one exists. From 2026 the published
+    # ratings_{season}.csv is anchored to the preseason prior, which is right
+    # for prediction but wrong for a resume metric: strength of record has to
+    # reflect what a team did, not what we projected in August.
+    path = RATINGS_DIR / f"ratings_{season}_inseason.csv"
+    if path.exists():
+        print(f"  Using preseason-free ratings: {path.name}")
+    elif season >= FIRST_ANCHORED_SEASON:
+        # ratings_{season}.csv is anchored to the preseason prior from 2026 on.
+        # Falling back to it would put a projection inside a resume metric, so
+        # refuse instead. Run update_ratings.py once enough games exist for a
+        # preseason-free rating and the companion file will appear.
+        print(f"  No preseason-free ratings for {season}; refusing to build SOR "
+              f"from the prior-anchored file")
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+    else:
+        path = RATINGS_DIR / f"ratings_{season}.csv"
     if not path.exists():
         print(f"  No ratings_{season}.csv on disk")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()

@@ -311,7 +311,9 @@ def calculate_recency_weights(game_data: pd.DataFrame, config: RatingConfig) -> 
 
 def calculate_opponent_adjusted_metrics(
     game_data: pd.DataFrame,
-    config: RatingConfig
+    config: RatingConfig,
+    ppa_priors: dict = None,
+    prior_weight: float = 0.0
 ) -> pd.DataFrame:
     """
     Calculate opponent-adjusted PPA and success rate.
@@ -324,6 +326,13 @@ def calculate_opponent_adjusted_metrics(
     Adjustment (additive):
     Adjusted Off PPA = Raw Off PPA + (Avg Def PPA - Opp Adj Def PPA)
     Adjusted Def PPA = Raw Def PPA - (Opp Adj Off PPA - Avg Off PPA)
+
+    ppa_priors: optional {team: {"off": x, "def": y}} in PPA units. Supplied,
+        each team is regularized toward its own prior rather than toward the
+        league mean, and an opponent with no games contributes its prior. This
+        is what lets a week-1 result mean something: without it every team in
+        a slate of disjoint pairs resolves to exactly average.
+    prior_weight: strength of the pull, in equivalent games.
     """
     df = game_data.copy()
     df = calculate_recency_weights(df, config)
@@ -362,9 +371,21 @@ def calculate_opponent_adjusted_metrics(
     avg_off_sr = team_stats["raw_off_sr"].mean()
     avg_def_sr = team_stats["raw_def_sr"].mean()
 
+    # Seed from the prior where we have one, so the very first iteration
+    # already asks "how good is this opponent" against a real answer.
+    ppa_priors = ppa_priors or {}
+    anchored = bool(ppa_priors) and prior_weight > 0
+    if anchored:
+        team_stats["prior_off_ppa"] = team_stats["team"].map(
+            lambda t: ppa_priors.get(t, {}).get("off", 0.0))
+        team_stats["prior_def_ppa"] = team_stats["team"].map(
+            lambda t: ppa_priors.get(t, {}).get("def", 0.0))
+
     # Initialize adjusted values
-    team_stats["adj_off_ppa"] = team_stats["raw_off_ppa"]
-    team_stats["adj_def_ppa"] = team_stats["raw_def_ppa"]
+    team_stats["adj_off_ppa"] = (team_stats["prior_off_ppa"] if anchored
+                                 else team_stats["raw_off_ppa"])
+    team_stats["adj_def_ppa"] = (team_stats["prior_def_ppa"] if anchored
+                                 else team_stats["raw_def_ppa"])
     team_stats["adj_off_sr"] = team_stats["raw_off_sr"]
     team_stats["adj_def_sr"] = team_stats["raw_def_sr"]
 
@@ -399,8 +420,10 @@ def calculate_opponent_adjusted_metrics(
                 opp = game["opponent"]
                 w = game.get("recency_weight", 1.0)
 
-                opp_adj_def_ppa = def_ppa_lookup.get(opp, avg_def_ppa)
-                opp_adj_off_ppa = off_ppa_lookup.get(opp, avg_off_ppa)
+                opp_adj_def_ppa = def_ppa_lookup.get(
+                    opp, ppa_priors.get(opp, {}).get("def", avg_def_ppa))
+                opp_adj_off_ppa = off_ppa_lookup.get(
+                    opp, ppa_priors.get(opp, {}).get("off", avg_off_ppa))
                 opp_adj_def_sr = def_sr_lookup.get(opp, avg_def_sr)
                 opp_adj_off_sr = off_sr_lookup.get(opp, avg_off_sr)
 
@@ -424,21 +447,35 @@ def calculate_opponent_adjusted_metrics(
 
                 weights.append(w)
 
+            prior_for = {
+                "off_ppa": ppa_priors.get(team, {}).get("off"),
+                "def_ppa": ppa_priors.get(team, {}).get("def"),
+                "off_sr": None,   # priors carry no success-rate edge
+                "def_sr": None,
+            }
             for key in new_adj:
                 vals = adj_values[key]
                 if vals and len(weights[:len(vals)]) > 0:
-                    new_adj[key].append(np.average(vals, weights=weights[:len(vals)]))
+                    w = weights[:len(vals)]
+                    if anchored and prior_for.get(key) is not None:
+                        # Prior as a pseudo-observation of weight `prior_weight`
+                        vals = list(vals) + [prior_for[key]]
+                        w = list(w) + [prior_weight]
+                    new_adj[key].append(np.average(vals, weights=w))
                 else:
-                    new_adj[key].append(0.0)
+                    new_adj[key].append(prior_for.get(key) or 0.0)
 
         team_stats["adj_off_ppa"] = new_adj["off_ppa"]
         team_stats["adj_def_ppa"] = new_adj["def_ppa"]
         team_stats["adj_off_sr"] = new_adj["off_sr"]
         team_stats["adj_def_sr"] = new_adj["def_sr"]
 
-        # Normalize PPA to mean 0 (required each iteration for convergence)
-        team_stats["adj_off_ppa"] = team_stats["adj_off_ppa"] - team_stats["adj_off_ppa"].mean()
-        team_stats["adj_def_ppa"] = team_stats["adj_def_ppa"] - team_stats["adj_def_ppa"].mean()
+        if not anchored:
+            # Normalize PPA to mean 0 (required each iteration for convergence).
+            # Skipped when anchored: the priors set the level, and re-centering
+            # would pull every team back toward average each pass.
+            team_stats["adj_off_ppa"] = team_stats["adj_off_ppa"] - team_stats["adj_off_ppa"].mean()
+            team_stats["adj_def_ppa"] = team_stats["adj_def_ppa"] - team_stats["adj_def_ppa"].mean()
 
         # NOTE: Success rate centering removed from loop to avoid double-centering
         # Center once after loop completes (see below)
@@ -460,18 +497,23 @@ def calculate_opponent_adjusted_metrics(
     # Apply shrinkage/regression to prior based on sample size
     # This handles: early-season noise, low-sample teams, blowout volatility
     min_plays_full_weight = 800  # ~60 plays/game * 13 games = full season
-    preseason_prior = 0.0  # Average team (could use recruiting rankings)
 
     shrinkage_weight = np.minimum(team_stats["total_plays"] / min_plays_full_weight, 1.0)
 
-    team_stats["adj_off_ppa"] = (
-        shrinkage_weight * team_stats["adj_off_ppa"] +
-        (1 - shrinkage_weight) * preseason_prior
-    )
-    team_stats["adj_def_ppa"] = (
-        shrinkage_weight * team_stats["adj_def_ppa"] +
-        (1 - shrinkage_weight) * preseason_prior
-    )
+    if anchored:
+        # The ridge above already regularizes toward each team's prior, so this
+        # second shrinkage would double-count it. Skip for PPA.
+        pass
+    else:
+        preseason_prior = 0.0  # Average team (could use recruiting rankings)
+        team_stats["adj_off_ppa"] = (
+            shrinkage_weight * team_stats["adj_off_ppa"] +
+            (1 - shrinkage_weight) * preseason_prior
+        )
+        team_stats["adj_def_ppa"] = (
+            shrinkage_weight * team_stats["adj_def_ppa"] +
+            (1 - shrinkage_weight) * preseason_prior
+        )
     team_stats["adj_off_sr"] = (
         shrinkage_weight * team_stats["adj_off_sr"] +
         (1 - shrinkage_weight) * avg_off_sr
@@ -489,7 +531,9 @@ def calculate_opponent_adjusted_metrics(
 # =============================================================================
 
 def calculate_srs(games: pd.DataFrame, fbs_teams: set, iterations: int = 10,
-                  hfa_points: float = 2.5) -> pd.DataFrame:
+                  hfa_points: float = 2.5, priors: dict = None,
+                  prior_weight: float = 0.0, mov_cap: float = 28.0,
+                  residual_cap: float = None) -> pd.DataFrame:
     """
     Calculate SRS (Simple Rating System) from actual game margins.
 
@@ -505,6 +549,14 @@ def calculate_srs(games: pd.DataFrame, fbs_teams: set, iterations: int = 10,
         fbs_teams: Set of FBS team names
         iterations: Number of adjustment iterations
         hfa_points: Home field advantage in points
+        priors: optional {team: preseason rating}. When supplied, each team is
+            regularized toward its own prior instead of toward zero, and an
+            opponent with no games yet contributes its prior rather than
+            league average. Without this, a slate where no two teams share an
+            opponent (any week 1) has only one self-consistent solution --
+            everybody is exactly average -- and all signal is destroyed.
+        prior_weight: strength of that pull, in units of equivalent games.
+            1.0 means the prior counts as much as one played game.
 
     Returns:
         DataFrame with team, srs columns
@@ -524,8 +576,16 @@ def calculate_srs(games: pd.DataFrame, fbs_teams: set, iterations: int = 10,
     games_clean["neutral"] = games_clean.get("neutralSite", False).fillna(False)
     games_clean["hfa"] = games_clean["neutral"].apply(lambda x: 0 if x else hfa_points)
     games_clean["margin_raw"] = games_clean["homePoints"] - games_clean["awayPoints"]
-    # Cap margin at ±28 points to prevent blowouts from skewing ratings
-    games_clean["margin"] = games_clean["margin_raw"].clip(-28, 28)
+    # Cap margins so blowouts do not skew ratings. A flat cap on the raw
+    # margin misfires once priors are involved: a +30 team playing a -25 team
+    # is projected to win by ~55, so capping at 28 reads a routine 50-point
+    # win as a severe underperformance. When residual_cap is set we instead
+    # cap the surprise -- how far the margin ran from what the priors expected
+    # -- which limits garbage time without punishing a team for being good.
+    if residual_cap is None:
+        games_clean["margin"] = games_clean["margin_raw"].clip(-mov_cap, mov_cap)
+    else:
+        games_clean["margin"] = games_clean["margin_raw"]
 
     # Build game-level MOV table (one row per team per game)
     home_games = games_clean[["homeTeam", "awayTeam", "margin", "hfa"]].copy()
@@ -539,12 +599,20 @@ def calculate_srs(games: pd.DataFrame, fbs_teams: set, iterations: int = 10,
     games_srs = pd.concat([home_games[["team", "opponent", "mov"]],
                            away_games[["team", "opponent", "mov"]]], ignore_index=True)
 
+    if residual_cap is not None:
+        # Expected margin from the priors, then clip only the deviation.
+        pri = priors or {}
+        exp = (games_srs["team"].map(lambda t: float(pri.get(t, 0.0)))
+               - games_srs["opponent"].map(lambda t: float(pri.get(t, 0.0))))
+        games_srs["mov"] = exp + (games_srs["mov"] - exp).clip(-residual_cap, residual_cap)
+
     # Get unique teams
     teams = sorted(games_srs["team"].unique())
     n = len(teams)
 
-    # Initialize ratings to 0
-    ratings = {team: 0.0 for team in teams}
+    # Start at the prior when we have one; zero otherwise (original behavior)
+    priors = priors or {}
+    ratings = {team: float(priors.get(team, 0.0)) for team in teams}
 
     # Iterative adjustment
     for _ in range(iterations):
@@ -556,17 +624,29 @@ def calculate_srs(games: pd.DataFrame, fbs_teams: set, iterations: int = 10,
                 new_ratings[team] = 0.0
                 continue
 
-            # Adjusted MOV = raw MOV + opponent rating
+            # Adjusted MOV = raw MOV + opponent rating. An opponent we have
+            # not rated yet falls back to its prior, not to average.
             adjusted_movs = []
             for _, game in team_games.iterrows():
-                opp_rating = ratings.get(game["opponent"], 0.0)
+                opp = game["opponent"]
+                opp_rating = ratings.get(opp, float(priors.get(opp, 0.0)))
                 adjusted_movs.append(game["mov"] + opp_rating)
 
-            new_ratings[team] = np.mean(adjusted_movs)
+            if prior_weight > 0 and team in priors:
+                # Ridge toward this team's own prior: the prior enters as a
+                # pseudo-game of weight `prior_weight`.
+                total = float(np.sum(adjusted_movs)) + prior_weight * float(priors[team])
+                new_ratings[team] = total / (len(adjusted_movs) + prior_weight)
+            else:
+                new_ratings[team] = np.mean(adjusted_movs)
 
-        # Normalize to mean 0
-        mean_rating = np.mean(list(new_ratings.values()))
-        ratings = {team: rating - mean_rating for team, rating in new_ratings.items()}
+        if prior_weight > 0 and priors:
+            # The priors already set the level; re-centering each iteration
+            # would fight them and reintroduce the pull toward average.
+            ratings = new_ratings
+        else:
+            mean_rating = np.mean(list(new_ratings.values()))
+            ratings = {team: rating - mean_rating for team, rating in new_ratings.items()}
 
     # Create output DataFrame
     srs_df = pd.DataFrame([
@@ -679,9 +759,37 @@ def _effective_week(games: pd.DataFrame) -> pd.Series:
     return week
 
 
+def build_ppa_priors(preseason: pd.DataFrame, scale: float,
+                     ppa_weight: float) -> dict:
+    """Map preseason point ratings into the PPA units the adjustment works in.
+
+    off_adjustment = adj_off_ppa * scale * ppa_weight, so inverting gives the
+    adj_off_ppa a team would need to reproduce its preseason offensive edge.
+    Success-rate priors are left at league average, so the whole preseason
+    edge is carried by the PPA term rather than split and double-counted.
+    """
+    if scale <= 0 or ppa_weight <= 0:
+        return {}
+    off = pd.to_numeric(preseason.get("off_rating"), errors="coerce")
+    deff = pd.to_numeric(preseason.get("def_rating"), errors="coerce")
+    if off is None or deff is None or off.isna().all():
+        return {}
+    off_c, def_c = off - off.mean(), deff - deff.mean()
+    denom = scale * ppa_weight
+    return {
+        t: {"off": float(o) / denom, "def": float(d) / denom}
+        for t, o, d in zip(preseason["team"], off_c, def_c)
+        if pd.notna(o) and pd.notna(d)
+    }
+
+
 def calculate_ratings(season: int, config: RatingConfig,
                       through_week: int = None,
-                      prefetched: tuple = None) -> pd.DataFrame:
+                      prefetched: tuple = None,
+                      priors: pd.DataFrame = None,
+                      prior_weight: float = 0.0,
+                      mov_cap: float = 28.0,
+                      residual_cap: float = None) -> pd.DataFrame:
     """
     Main function to calculate CFB power ratings for a season.
 
@@ -748,8 +856,32 @@ def calculate_ratings(season: int, config: RatingConfig,
     game_data = filter_fbs_games(game_data, fbs_teams)
     print(f"  FBS vs FBS: {len(game_data)} records")
 
+    # Prior anchoring: regularize toward each team's preseason rating rather
+    # than toward league average, so a week-1 result carries information.
+    ppa_priors, srs_priors = {}, {}
+    if priors is not None and len(priors) > 0 and prior_weight > 0:
+        net = game_data["off_ppa"] - game_data["def_ppa"]
+        epa_std = net.std()
+        scale = 25.0 / epa_std if epa_std and epa_std > 0 else 100.0
+        ppa_priors = build_ppa_priors(priors, scale, config.weight_ppa)
+        srs_priors = {t: float(r) for t, r in
+                      zip(priors["team"], pd.to_numeric(priors["power_rating"],
+                                                        errors="coerce"))
+                      if pd.notna(r)}
+        # Teams with no prior are almost always fresh FCS call-ups. Left
+        # unregularized they float on one result alone; seed them near the
+        # bottom of the distribution, which is where promoted teams land.
+        default_prior = float(pd.to_numeric(priors["power_rating"],
+                                            errors="coerce").quantile(0.10))
+        for t in fbs_teams:
+            srs_priors.setdefault(t, default_prior)
+            ppa_priors.setdefault(t, {"off": 0.0, "def": 0.0})
+        print(f"  Prior-anchored: {len(ppa_priors)} PPA / {len(srs_priors)} SRS "
+              f"priors at weight {prior_weight} (scale {scale:.1f})")
+
     # Calculate opponent-adjusted metrics
-    team_stats = calculate_opponent_adjusted_metrics(game_data, config)
+    team_stats = calculate_opponent_adjusted_metrics(
+        game_data, config, ppa_priors=ppa_priors, prior_weight=prior_weight)
 
     # Filter to teams with enough games
     team_stats = team_stats[team_stats["games"] >= config.min_fbs_games]
@@ -757,7 +889,9 @@ def calculate_ratings(season: int, config: RatingConfig,
 
     # Calculate SRS from actual margins
     print(f"  Calculating SRS from game margins...")
-    srs_ratings = calculate_srs(games, fbs_teams)
+    srs_ratings = calculate_srs(games, fbs_teams, priors=srs_priors,
+                                prior_weight=prior_weight, mov_cap=mov_cap,
+                                residual_cap=residual_cap)
     print(f"    SRS calculated for {len(srs_ratings)} teams")
     if len(srs_ratings) > 0:
         print(f"    SRS range: {srs_ratings['srs'].min():.1f} to {srs_ratings['srs'].max():.1f}")

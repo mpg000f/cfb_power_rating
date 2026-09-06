@@ -26,7 +26,8 @@ import pandas as pd
 
 from power_rating import (RatingConfig, calculate_ratings, fetch_games,
                           fetch_all_plays, _effective_week)
-from update_ratings import blend_with_preseason
+from update_ratings import (blend_with_preseason, load_priors, carry_unplayed,
+                            PRIOR_WEIGHT, RESIDUAL_CAP)
 
 WEEKLY_DIR = Path(__file__).parent / "historical_ratings" / "weekly"
 
@@ -68,8 +69,11 @@ def main():
     # early ratings stay anchored to the preseason prior instead of exploding.
     config.min_fbs_games = 1
 
+    priors = load_priors(args.season, config.api_key)
     baseline = WEEKLY_DIR.parent / f"ratings_{args.season}_preseason.csv"
-    if baseline.exists():
+    if priors is not None:
+        print(f"Prior-anchored against {baseline.name} (weight {PRIOR_WEIGHT})")
+    elif baseline.exists():
         print(f"Using preseason baseline: {baseline.name}")
     else:
         print(f"No preseason baseline for {args.season}; early weeks fall back to pure in-season")
@@ -86,9 +90,16 @@ def main():
 
     saved = []
     for wk in weeks:
-        in_season = calculate_ratings(args.season, config, through_week=wk,
-                                      prefetched=(games, plays))
-        ratings = blend_with_preseason(in_season, args.season)
+        ratings = calculate_ratings(
+            args.season, config, through_week=wk, prefetched=(games, plays),
+            priors=priors,
+            prior_weight=PRIOR_WEIGHT if priors is not None else 0.0,
+            residual_cap=RESIDUAL_CAP if priors is not None else None,
+        )
+        if priors is None:
+            ratings = blend_with_preseason(ratings, args.season)
+        else:
+            ratings = carry_unplayed(ratings, priors)
         if len(ratings) < args.min_teams:
             print(f"  Week {wk}: only {len(ratings)} teams rated, skipping")
             continue
