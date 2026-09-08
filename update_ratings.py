@@ -84,6 +84,13 @@ def sp_plus_priors(season: int, baseline: pd.DataFrame, api_key: str) -> pd.Data
     nationally off one game. SP+ covers them. It is a different scale, so it is
     mapped onto ours by least squares against the teams present in both, which
     fit at r=0.95 for 2026.
+
+    The result is written back into the preseason file and never recomputed.
+    CFBD's /ratings/sp returns *current* SP+, not preseason -- it ignores the
+    week parameter -- so refetching each run would let a team's own results
+    leak into the prior meant to be independent of them, counting week 1 twice.
+    Whatever is captured first is frozen. Run this before the season opens, or
+    the frozen value already carries results.
     """
     try:
         resp = requests.get("https://api.collegefootballdata.com/ratings/sp",
@@ -124,7 +131,14 @@ def sp_plus_priors(season: int, baseline: pd.DataFrame, api_key: str) -> pd.Data
             add[col] = pd.NA
     named = ", ".join(f"{t} {r:+.1f}" for t, r in zip(add["team"], add["power_rating"]))
     print(f"  SP+ priors for {len(add)} team(s) new to FBS: {named}")
-    return pd.concat([baseline, add[baseline.columns]], ignore_index=True)
+
+    out = pd.concat([baseline, add[baseline.columns]], ignore_index=True)
+    out = out.sort_values("power_rating", ascending=False).reset_index(drop=True)
+    out["rank"] = range(1, len(out) + 1)
+    path = RATINGS_DIR / f"ratings_{season}_preseason.csv"
+    out.to_csv(path, index=False)
+    print(f"  Frozen into {path.name}; SP+ will not be refetched for {season}")
+    return out
 
 
 def load_priors(season: int, api_key: str = None):
