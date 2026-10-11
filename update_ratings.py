@@ -41,7 +41,19 @@ RATINGS_DIR = Path(__file__).parent / "historical_ratings"
 # Straight-up accuracy improved in 2025 (72.3% -> 73.1%) and fell in 2024
 # (69.8% -> 66.0%), so the gain is in margin accuracy, not in picking winners.
 FIRST_ANCHORED_SEASON = 2026
-PRIOR_WEIGHT = 2.0   # prior counts as two played games
+PRIOR_WEIGHT = 2.0   # prior counts as two played games, before decay
+# ...and that weight decays linearly to nothing by this many FBS games. A flat
+# lambda never lets go: two pseudo-games stay two pseudo-games, so the prior
+# still carried ~21% of a rating at eleven games, which is indefensible for a
+# number meant to describe a season. Decaying releases it while still anchoring
+# week 1, where the opponent adjustment has nothing to solve against and
+# collapses to "everyone is average" without a prior.
+#
+# Costs accuracy, and we are paying it knowingly: predicting each week from the
+# one before, avg MAE over 2024-25 goes 12.50 -> 12.66, with the damage in
+# weeks 6+ (12.49 -> 12.73). The preseason projection does predict well; it
+# just should not be what a power rating is made of in November.
+PRIOR_DECAY_GAMES = 8.0
 # Cap the surprise rather than the raw margin. A flat 28 reads a 56-3 win
 # over a team projected 53 points worse as underperformance; capping the
 # deviation from the prior expectation limits garbage time without punishing
@@ -348,6 +360,7 @@ def main():
             prefetched=prefetched,
             priors=priors,
             prior_weight=PRIOR_WEIGHT if priors is not None else 0.0,
+            prior_decay_games=PRIOR_DECAY_GAMES if priors is not None else None,
             residual_cap=RESIDUAL_CAP if priors is not None else None,
         )
 

@@ -27,7 +27,7 @@ import pandas as pd
 from power_rating import (RatingConfig, calculate_ratings, fetch_games,
                           fetch_all_plays, _effective_week)
 from update_ratings import (blend_with_preseason, load_priors, carry_unplayed,
-                            PRIOR_WEIGHT, RESIDUAL_CAP)
+                            PRIOR_WEIGHT, PRIOR_DECAY_GAMES, RESIDUAL_CAP)
 
 WEEKLY_DIR = Path(__file__).parent / "historical_ratings" / "weekly"
 
@@ -94,6 +94,7 @@ def main():
             args.season, config, through_week=wk, prefetched=(games, plays),
             priors=priors,
             prior_weight=PRIOR_WEIGHT if priors is not None else 0.0,
+            prior_decay_games=PRIOR_DECAY_GAMES if priors is not None else None,
             residual_cap=RESIDUAL_CAP if priors is not None else None,
         )
         if priors is None:
