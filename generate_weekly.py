@@ -27,7 +27,7 @@ import pandas as pd
 from power_rating import (RatingConfig, calculate_ratings, fetch_games,
                           fetch_all_plays, _effective_week)
 from update_ratings import (blend_with_preseason, load_priors, carry_unplayed,
-                            PRIOR_WEIGHT, PRIOR_DECAY_GAMES, RESIDUAL_CAP)
+                            rescale, PRIOR_WEIGHT, PRIOR_DECAY_GAMES, RESIDUAL_CAP)
 
 WEEKLY_DIR = Path(__file__).parent / "historical_ratings" / "weekly"
 
@@ -100,7 +100,7 @@ def main():
         if priors is None:
             ratings = blend_with_preseason(ratings, args.season)
         else:
-            ratings = carry_unplayed(ratings, priors)
+            ratings = rescale(carry_unplayed(ratings, priors))
         if len(ratings) < args.min_teams:
             print(f"  Week {wk}: only {len(ratings)} teams rated, skipping")
             continue

@@ -57,9 +57,49 @@ PRIOR_DECAY_GAMES = 8.0
 # Cap the surprise rather than the raw margin. A flat 28 reads a 56-3 win
 # over a team projected 53 points worse as underperformance; capping the
 # deviation from the prior expectation limits garbage time without punishing
-# a team for being good. Backtests were indifferent between cap schemes
-# (within 0.1 MAE), so this is chosen on behaviour, not on fit.
-RESIDUAL_CAP = 28.0
+# a team for being good.
+#
+# Tightened from 28 to 14. At 28 a dominant team banked 35-point effective
+# margins and the scale drifted wide -- calibration slope 0.850, meaning a
+# 20-point edge produced only a 17-point margin. At 14 the slope is 0.901 and
+# out-of-sample MAE improves too, 12.61 -> 12.53.
+RESIDUAL_CAP = 14.0
+
+# A rating is expected margin against an average team, so a 20-point edge
+# should produce a 20-point favourite. It did not: regressing actual margin on
+# predicted, out of sample, the slope sat near 0.90 and the spread was about
+# 10% too wide. Multiplying by the fitted slope corrects the scale and changes
+# no ordering. Fit on 2023-25 with the cap above -- 0.9028 / 0.8990 / 0.9085
+# by season, pooled 0.9045, leave-one-season-out 0.901 to 0.906.
+#
+# Applied to the published output only. The ridge anchors against the raw
+# preseason file, so the internal computation stays on its native scale and
+# the prior stays consistent with it.
+RATING_SCALE = 0.9045
+
+
+def rescale(df: pd.DataFrame, scale: float = None) -> pd.DataFrame:
+    """Put published ratings on a calibrated points scale.
+
+    Zero-centred columns scale directly. Offensive and defensive ratings are
+    points scored or allowed against an average team, centred on league
+    scoring rather than on zero, so it is their deviation from the mean that
+    scales -- scaling them outright would drag both toward zero points.
+    """
+    scale = RATING_SCALE if scale is None else scale
+    if df is None or len(df) == 0 or scale == 1.0:
+        return df
+    out = df.copy()
+    for col in ("power_rating", "epa_rating", "srs"):
+        if col in out.columns:
+            out[col] = (pd.to_numeric(out[col], errors="coerce") * scale).round(1)
+    for col in ("off_rating", "def_rating"):
+        if col in out.columns:
+            v = pd.to_numeric(out[col], errors="coerce")
+            out[col] = (v.mean() + (v - v.mean()) * scale).round(1)
+    out = out.sort_values("power_rating", ascending=False).reset_index(drop=True)
+    out["rank"] = range(1, len(out) + 1)
+    return out
 
 
 def carry_unplayed(ratings: pd.DataFrame, priors: pd.DataFrame) -> pd.DataFrame:
@@ -366,6 +406,7 @@ def main():
 
         if priors is not None:
             ratings = carry_unplayed(ratings, priors)
+            ratings = rescale(ratings)
         elif not args.no_blend:
             # Pre-2026 seasons keep the original blend-after-the-fact path.
             print(f"\n  Blending with preseason baseline...")

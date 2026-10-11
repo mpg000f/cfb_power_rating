@@ -330,7 +330,8 @@ def calculate_opponent_adjusted_metrics(
     config: RatingConfig,
     ppa_priors: dict = None,
     prior_weight: float = 0.0,
-    prior_decay_games: float = None
+    prior_decay_games: float = None,
+    adj_damping: float = 1.0
 ) -> pd.DataFrame:
     """
     Calculate opponent-adjusted PPA and success rate.
@@ -406,8 +407,11 @@ def calculate_opponent_adjusted_metrics(
     team_stats["adj_off_sr"] = team_stats["raw_off_sr"]
     team_stats["adj_def_sr"] = team_stats["raw_def_sr"]
 
-    # Adjustment strength: 1.0 for stable SRS-style convergence
-    adj_strength = 1.0
+    # How much of the opponent's rating to lean on. 1.0 is full credit and
+    # stable SRS-style convergence; below 1.0 shrinks the adjustment toward raw
+    # production, which limits how far a tightly-interconnected group of teams
+    # can lift each other on the strength of games played only among themselves.
+    adj_strength = adj_damping
 
     print(f"  Running opponent adjustment ({config.opp_adjust_iterations} iterations, strength={adj_strength})...")
 
@@ -555,7 +559,8 @@ def calculate_srs(games: pd.DataFrame, fbs_teams: set, iterations: int = 10,
                   hfa_points: float = 2.5, priors: dict = None,
                   prior_weight: float = 0.0, mov_cap: float = 28.0,
                   residual_cap: float = None,
-                  prior_decay_games: float = None) -> pd.DataFrame:
+                  prior_decay_games: float = None,
+                  adj_damping: float = 1.0) -> pd.DataFrame:
     """
     Calculate SRS (Simple Rating System) from actual game margins.
 
@@ -652,7 +657,7 @@ def calculate_srs(games: pd.DataFrame, fbs_teams: set, iterations: int = 10,
             for _, game in team_games.iterrows():
                 opp = game["opponent"]
                 opp_rating = ratings.get(opp, float(priors.get(opp, 0.0)))
-                adjusted_movs.append(game["mov"] + opp_rating)
+                adjusted_movs.append(game["mov"] + adj_damping * opp_rating)
 
             lam = effective_prior_weight(prior_weight, len(adjusted_movs),
                                          prior_decay_games)
@@ -814,7 +819,8 @@ def calculate_ratings(season: int, config: RatingConfig,
                       prior_weight: float = 0.0,
                       mov_cap: float = 28.0,
                       residual_cap: float = None,
-                      prior_decay_games: float = None) -> pd.DataFrame:
+                      prior_decay_games: float = None,
+                      adj_damping: float = 1.0) -> pd.DataFrame:
     """
     Main function to calculate CFB power ratings for a season.
 
@@ -907,7 +913,7 @@ def calculate_ratings(season: int, config: RatingConfig,
     # Calculate opponent-adjusted metrics
     team_stats = calculate_opponent_adjusted_metrics(
         game_data, config, ppa_priors=ppa_priors, prior_weight=prior_weight,
-        prior_decay_games=prior_decay_games)
+        prior_decay_games=prior_decay_games, adj_damping=adj_damping)
 
     # Filter to teams with enough games
     team_stats = team_stats[team_stats["games"] >= config.min_fbs_games]
@@ -918,7 +924,8 @@ def calculate_ratings(season: int, config: RatingConfig,
     srs_ratings = calculate_srs(games, fbs_teams, priors=srs_priors,
                                 prior_weight=prior_weight, mov_cap=mov_cap,
                                 residual_cap=residual_cap,
-                                prior_decay_games=prior_decay_games)
+                                prior_decay_games=prior_decay_games,
+                                adj_damping=adj_damping)
     print(f"    SRS calculated for {len(srs_ratings)} teams")
     if len(srs_ratings) > 0:
         print(f"    SRS range: {srs_ratings['srs'].min():.1f} to {srs_ratings['srs'].max():.1f}")
