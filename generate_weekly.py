@@ -44,8 +44,19 @@ def load_api_key() -> str:
 
 
 def completed_weeks(games: pd.DataFrame) -> list:
-    """Weeks that have at least one played (scored) game."""
+    """Weeks with at least one played FBS-vs-FBS game.
+
+    The classification filter is the point. CFBD's regular season carries FCS,
+    DII and DIII games, and counting any scored game invented weeks that have
+    no FBS football in them at all -- a single Division II game, Savannah State
+    at Morehouse, was enough to publish a "Week 7" snapshot that was a byte-for
+    -byte copy of week 6 with every delta zero. Only FBS-vs-FBS games feed the
+    ratings, so only those should define a week.
+    """
     played = games[games.get("homePoints").notna() & games.get("awayPoints").notna()]
+    if "homeClassification" in played.columns:
+        played = played[(played["homeClassification"] == "fbs")
+                        & (played["awayClassification"] == "fbs")]
     weeks = sorted(int(w) for w in _effective_week(played).dropna().unique())
     return weeks
 
